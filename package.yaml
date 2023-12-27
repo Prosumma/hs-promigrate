@@ -1,10 +1,10 @@
 name:                promigrate
 version:             0.1.0.0
-github:              "githubuser/promigrate"
+github:              "Prosumma/hs-promigrate"
 license:             BSD-3-Clause
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2023 Author name here"
+author:              "Gregory Higley / Prosumma Inc."
+maintainer:          "greg@prosumma.com"
+copyright:           "2023 Gregory Higley / Prosumma Inc."
 
 extra-source-files:
 - README.md
@@ -21,6 +21,10 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- rio
+
+default-extensions:
+- NoImplicitPrelude
 
 ghc-options:
 - -Wall
