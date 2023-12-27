@@ -1,2 +1,6 @@
 .stack-work/
+/env
+*.env
 *~
+propass
+Profile
