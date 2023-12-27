@@ -40,16 +40,26 @@ ghc-options:
 library:
   source-dirs: src
 
-executables:
-  promigrate-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - promigrate
+executable:
+  main: Main.hs
+  source-dirs: app
+  ghc-options:
+  - -threaded
+  - -rtsopts
+  - -with-rtsopts=-N
+  dependencies:
+  - promigrate
+
+# executables:
+#   promigrate-exe:
+#     main:                Main.hs
+#     source-dirs:         app
+#     ghc-options:
+#     - -threaded
+#     - -rtsopts
+#     - -with-rtsopts=-N
+#     dependencies:
+#     - promigrate
 
 tests:
   promigrate-test:
