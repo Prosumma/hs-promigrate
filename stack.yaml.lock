@@ -3,7 +3,29 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    name: prosumma
+    pantry-tree:
+      sha256: 8d7267e8d9c39545511d7cefb3b4f44b1057898c19f524b00781315563365573
+      size: 2662
+    sha256: 718d86b8ac9deb6eb77fcf17c5c4d865b900f7acef3074fab794ca7ea72d1dfb
+    size: 29727
+    url: https://github.com/Prosumma/hs-prosumma/archive/589574296dda497dc7dcd5f8c6790289b046519a.tar.gz
+    version: 0.1.0.0
+  original:
+    url: https://github.com/Prosumma/hs-prosumma/archive/589574296dda497dc7dcd5f8c6790289b046519a.tar.gz
+- completed:
+    name: triplesec
+    pantry-tree:
+      sha256: 6373e387323d7fabca9d523ad0880e21c75ba3f4d478c97f5f5fd16aaa4bd791
+      size: 1203
+    sha256: cbc0d9acb9b61b1e99c50225c0cb89f27091a7d36741df82c6e559a622db2bec
+    size: 15579
+    url: https://github.com/SamProtas/hs-triplesec/archive/82c08710429e50a99bbe340e4471e410b15aa81b.tar.gz
+    version: 0.2.2.1
+  original:
+    url: https://github.com/SamProtas/hs-triplesec/archive/82c08710429e50a99bbe340e4471e410b15aa81b.tar.gz
 snapshots:
 - completed:
     sha256: 53a2800f7fe0c4628af0e7d5e985707dd3af9863ac3983a43c835dbaa8ed5f35
