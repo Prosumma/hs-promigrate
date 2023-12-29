@@ -7,14 +7,14 @@ packages:
 - completed:
     name: prosumma
     pantry-tree:
-      sha256: 8d7267e8d9c39545511d7cefb3b4f44b1057898c19f524b00781315563365573
+      sha256: 83978c0e22d0b4db535c0ee1a0c88bea4efc09d8375f9ccb520a9fa681f6dad4
       size: 2662
-    sha256: 718d86b8ac9deb6eb77fcf17c5c4d865b900f7acef3074fab794ca7ea72d1dfb
-    size: 29727
-    url: https://github.com/Prosumma/hs-prosumma/archive/589574296dda497dc7dcd5f8c6790289b046519a.tar.gz
+    sha256: f2b6889c19ed7b0aa1fba34bd9eb1df6855f860668816545d6eaf173a6520623
+    size: 29811
+    url: https://github.com/Prosumma/hs-prosumma/archive/7c95466203f2ff9d4bfea650e044bb336281c88b.tar.gz
     version: 0.1.0.0
   original:
-    url: https://github.com/Prosumma/hs-prosumma/archive/589574296dda497dc7dcd5f8c6790289b046519a.tar.gz
+    url: https://github.com/Prosumma/hs-prosumma/archive/7c95466203f2ff9d4bfea650e044bb336281c88b.tar.gz
 - completed:
     name: triplesec
     pantry-tree:

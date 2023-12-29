@@ -20,7 +20,10 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/promigrate#readme>
 
 dependencies:
+- amazonka
+- amazonka-dynamodb
 - base >= 4.7 && < 5
+- formatting
 - postgresql-libpq
 - postgresql-simple
 - prosumma
@@ -37,6 +40,7 @@ ghc-options:
 - -Wincomplete-uni-patterns
 - -Wmissing-export-lists
 - -Wmissing-home-modules
+- -Wno-name-shadowing
 - -Wpartial-fields
 - -Wredundant-constraints
 

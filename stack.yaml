@@ -40,16 +40,14 @@ packages:
 #
 # extra-deps: []
 extra-deps:
-- github: Prosumma/hs-prosumma
-  commit: 589574296dda497dc7dcd5f8c6790289b046519a
-- github: SamProtas/hs-triplesec
-  commit: 82c08710429e50a99bbe340e4471e410b15aa81b
+  - github: Prosumma/hs-prosumma
+    commit: 7c95466203f2ff9d4bfea650e044bb336281c88b
+  - github: SamProtas/hs-triplesec
+    commit: 82c08710429e50a99bbe340e4471e410b15aa81b
 # Override default flag values for local packages and extra-deps
 # flags: {}
-
 # Extra package databases containing global packages
 # extra-package-dbs: []
-
 # Control whether we use the GHC we find on the path
 # system-ghc: true
 #

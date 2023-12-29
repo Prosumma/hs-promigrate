@@ -34,9 +34,12 @@ library
       src
   default-extensions:
       NoImplicitPrelude
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wno-name-shadowing -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      amazonka
+    , amazonka-dynamodb
+    , base >=4.7 && <5
+    , formatting
     , postgresql-libpq
     , postgresql-simple
     , prosumma
@@ -53,9 +56,12 @@ executable promigrate
       app
   default-extensions:
       NoImplicitPrelude
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wno-name-shadowing -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      amazonka
+    , amazonka-dynamodb
+    , base >=4.7 && <5
+    , formatting
     , postgresql-libpq
     , postgresql-simple
     , promigrate
@@ -74,9 +80,12 @@ test-suite promigrate-test
       test
   default-extensions:
       NoImplicitPrelude
-  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wno-name-shadowing -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      amazonka
+    , amazonka-dynamodb
+    , base >=4.7 && <5
+    , formatting
     , postgresql-libpq
     , postgresql-simple
     , promigrate
