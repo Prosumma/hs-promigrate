@@ -41,11 +41,14 @@ library
     , base >=4.7 && <5
     , formatting
     , generic-lens
+    , hashable
     , lens
+    , optparse-applicative
     , postgresql-libpq
     , postgresql-simple
     , prosumma
     , rio
+    , time
   default-language: Haskell2010
 
 executable promigrate
@@ -65,12 +68,15 @@ executable promigrate
     , base >=4.7 && <5
     , formatting
     , generic-lens
+    , hashable
     , lens
+    , optparse-applicative
     , postgresql-libpq
     , postgresql-simple
     , promigrate
     , prosumma
     , rio
+    , time
   default-language: Haskell2010
 
 test-suite promigrate-test
@@ -91,10 +97,13 @@ test-suite promigrate-test
     , base >=4.7 && <5
     , formatting
     , generic-lens
+    , hashable
     , lens
+    , optparse-applicative
     , postgresql-libpq
     , postgresql-simple
     , promigrate
     , prosumma
     , rio
+    , time
   default-language: Haskell2010

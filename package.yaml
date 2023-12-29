@@ -25,11 +25,14 @@ dependencies:
 - base >= 4.7 && < 5
 - formatting
 - generic-lens
+- hashable
 - lens
+- optparse-applicative
 - postgresql-libpq
 - postgresql-simple
 - prosumma
 - rio
+- time
 
 default-extensions:
 - NoImplicitPrelude

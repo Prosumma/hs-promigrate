@@ -1,11 +1,13 @@
-{-# LANGUAGE DataKinds, OverloadedStrings, ScopedTypeVariables, TypeApplications #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
 
 module Main (main) where
 
 import Amazonka (discover, newEnv)
 import Amazonka.DynamoDB
-import Control.Lens (_Just)
 import Data.Generics.Product
+import Data.Hashable
+import Data.Time.Clock.POSIX
+import Options.Applicative hiding (HasName, HasValue)
 import Prelude (print, putStrLn)
 import Prosumma
 import Prosumma.AWS
@@ -15,11 +17,13 @@ import Prosumma.Settings
 import RIO
 import RIO.List
 import RIO.Directory
-import RIO.List.Partial
-import System.Environment
+import RIO.File
+import RIO.FilePath
+import RIO.Time
 import Text.Printf
 
 import qualified RIO.HashMap as HashMap
+import qualified RIO.Set as Set
 
 migrationDDL :: String
 migrationDDL = "\
@@ -70,39 +74,94 @@ initialize settings = do
         createSchemaIfNeeded metadataSchema
         createMigrationTableIfNeeded metadataSchema metadataTable
 
-variables :: [HashMap Text AttributeValue] -> [(Text, Text, Maybe Text)]
+getStamp :: IO String
+getStamp = do
+  time <- posixSecondsToUTCTime <$> getPOSIXTime
+  return $ take 16 $ formatTime defaultTimeLocale "%Y%m%d%H%M%S%q" time 
+
+data Variable = Variable {
+  name :: !Text,
+  value :: !Text,
+  file :: !(Maybe Text)
+} deriving Show
+
+makeLensesWith addL ''Variable
+
+instance Eq Variable where
+  v1 == v2 = v1^.nameL == v2^.nameL
+
+instance Ord Variable where
+  v1 <= v2 = v1^.nameL <= v2^.nameL
+
+instance Hashable Variable where
+  hashWithSalt salt v = hashWithSalt salt (v^.nameL)
+
+variables :: [HashMap Text AttributeValue] -> Set Variable 
 variables [] = mempty
-variables (row:rows) = getRow row <> variables rows 
+variables (row:rows) = getRow <> variables rows 
   where
-    getRow row = case HashMap.lookup "name" row of
-      Just (S name) -> case HashMap.lookup "value" row of
-        Just (S value) -> [(name, value, Nothing)]
+    getRow = case lookupText "name" of 
+      Just name -> case lookupText "value" of 
+        Just value -> Set.fromList [Variable name value (lookupText "file")]
         _other -> mempty
       _other -> mempty
+    lookupText :: Text -> Maybe Text
+    lookupText key = HashMap.lookup key row >>= getText
+    getText :: AttributeValue -> Maybe Text
+    getText (S text) = Just text
+    getText _other = Nothing
+
+data Command
+  = Up (Maybe FilePath)
+  | New String (Maybe FilePath)
+  deriving (Show)
+
+upCommand :: Parser Command
+upCommand = Up <$> optional (strArgument (metavar "PATH" <> help "Path to migrate, defaults to current directory"))
+
+newCommand :: Parser Command
+newCommand = New 
+    <$> strArgument (metavar "DESCRIPTION" <> help "Description of the migration")
+    <*> optional (strArgument (metavar "PATH" <> help "Path for the migration, defaults to current directory"))
+
+commandParser :: Parser Command
+commandParser = subparser
+    ( command "up" (info upCommand (progDesc "Run migrations up to the latest"))
+   <> command "new" (info newCommand (progDesc "Create a new migration"))
+    )
 
 main :: IO ()
 main = do
+  command <- customExecParser (prefs showHelpOnError) $ info (commandParser <**> helper)
+    ( fullDesc
+    <> progDesc "Prosumma PostgreSQL Migration Tool"
+    <> header "promigrate - a Prosumma PostgreSQL migration tool"
+    )
   logOptions <- readLogOptions
   withLogFunc logOptions $ \logFunc -> do
     runRIO logFunc $ do
-      settings <- envString Nothing "PROMIGRATE_SETTINGS_TABLE"
-      env <- liftIO $ newEnv discover
-      let aws = AWS env logFunc
-      runRIO aws $ do
-        initialize settings 
-        response <- sendAWS $ newScan $ settings <> ".variables" 
-        liftIO $ print $ response ^. (field @"items")
-      migrationDirectory <- getMigrationDirectory
-      contents <- sort <$> getDirectoryContents migrationDirectory
-      for_ contents (liftIO . putStrLn) 
+      case command of
+        New hint path -> do
+          stamp <- liftIO getStamp
+          let filename = printf "%s.%s.up.psql" stamp hint
+          migrationDirectory <- getMigrationDirectory path
+          let filepath = migrationDirectory </> filename
+          writeFileUtf8 filepath ""
+        Up path -> do
+          settings <- envString Nothing "PROMIGRATE_SETTINGS_TABLE"
+          env <- liftIO $ newEnv discover
+          let aws = AWS env logFunc
+          runRIO aws $ do
+            initialize settings 
+            response <- sendAWS $ newScan $ settings <> ".variables" 
+            liftIO $ print $ response ^. (field @"items")
+          migrationDirectory <- getMigrationDirectory path
+          contents <- sort <$> getDirectoryContents migrationDirectory
+          for_ contents (liftIO . putStrLn) 
   where
     readLogOptions = do
       logMinLevel <- envValue (Just LevelDebug) readLogLevel "PROMIGRATE_LOGLEVEL"
       logOptionsHandle stderr True <&> setLogMinLevel logMinLevel
-    getMigrationDirectory :: MonadIO m => m FilePath
-    getMigrationDirectory = do
-      defaultDirectory <- envString (Just ".") "PROMIGRATE_MIGRATIONS_DIRECTORY"
-      args <- liftIO getArgs
-      return $ if null args
-        then defaultDirectory
-        else head args
+    getMigrationDirectory :: MonadIO m => Maybe FilePath -> m FilePath
+    getMigrationDirectory (Just path) = return path
+    getMigrationDirectory Nothing = envString (Just ".") "PROMIGRATE_MIGRATIONS_DIRECTORY"
