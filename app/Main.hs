@@ -1,9 +1,12 @@
-{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds, OverloadedStrings, ScopedTypeVariables, TypeApplications #-}
 
 module Main (main) where
 
 import Amazonka (discover, newEnv)
-import Prelude (putStrLn)
+import Amazonka.DynamoDB
+import Control.Lens (_Just)
+import Data.Generics.Product
+import Prelude (print, putStrLn)
 import Prosumma
 import Prosumma.AWS
 import Prosumma.Logging
@@ -15,6 +18,8 @@ import RIO.Directory
 import RIO.List.Partial
 import System.Environment
 import Text.Printf
+
+import qualified RIO.HashMap as HashMap
 
 migrationDDL :: String
 migrationDDL = "\
@@ -65,15 +70,28 @@ initialize settings = do
         createSchemaIfNeeded metadataSchema
         createMigrationTableIfNeeded metadataSchema metadataTable
 
+variables :: [HashMap Text AttributeValue] -> [(Text, Text, Maybe Text)]
+variables [] = mempty
+variables (row:rows) = getRow row <> variables rows 
+  where
+    getRow row = case HashMap.lookup "name" row of
+      Just (S name) -> case HashMap.lookup "value" row of
+        Just (S value) -> [(name, value, Nothing)]
+        _other -> mempty
+      _other -> mempty
+
 main :: IO ()
 main = do
   logOptions <- readLogOptions
   withLogFunc logOptions $ \logFunc -> do
     runRIO logFunc $ do
-      settings <- envString Nothing "PROSERVICE_SETTINGS_TABLE"
+      settings <- envString Nothing "PROMIGRATE_SETTINGS_TABLE"
       env <- liftIO $ newEnv discover
       let aws = AWS env logFunc
-      runRIO aws $ initialize settings 
+      runRIO aws $ do
+        initialize settings 
+        response <- sendAWS $ newScan $ settings <> ".variables" 
+        liftIO $ print $ response ^. (field @"items")
       migrationDirectory <- getMigrationDirectory
       contents <- sort <$> getDirectoryContents migrationDirectory
       for_ contents (liftIO . putStrLn) 

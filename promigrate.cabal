@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -40,6 +40,8 @@ library
     , amazonka-dynamodb
     , base >=4.7 && <5
     , formatting
+    , generic-lens
+    , lens
     , postgresql-libpq
     , postgresql-simple
     , prosumma
@@ -62,6 +64,8 @@ executable promigrate
     , amazonka-dynamodb
     , base >=4.7 && <5
     , formatting
+    , generic-lens
+    , lens
     , postgresql-libpq
     , postgresql-simple
     , promigrate
@@ -86,6 +90,8 @@ test-suite promigrate-test
     , amazonka-dynamodb
     , base >=4.7 && <5
     , formatting
+    , generic-lens
+    , lens
     , postgresql-libpq
     , postgresql-simple
     , promigrate

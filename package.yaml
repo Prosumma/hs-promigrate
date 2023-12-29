@@ -24,6 +24,8 @@ dependencies:
 - amazonka-dynamodb
 - base >= 4.7 && < 5
 - formatting
+- generic-lens
+- lens
 - postgresql-libpq
 - postgresql-simple
 - prosumma
