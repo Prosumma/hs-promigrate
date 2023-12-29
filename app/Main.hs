@@ -26,7 +26,7 @@ scanMigrationSettings
   :: (HasAWSEnv env, MonadReader env m, MonadThrow m, MonadUnliftIO m)
   => Text -> m (Text, String, String)
 scanMigrationSettings table = scanSettings table $ \read ->
-  (,,) <$> read "connection string" <*> read "metadata schema" <*> (read "metadata table" ??~ "__migration")
+  (,,) <$> read "connection string" <*> read "migration schema" <*> (read "migration table" ??~ "__migration")
 
 createDatabaseIfNeeded :: String -> RIO (PG Connection) ()
 createDatabaseIfNeeded database = do
