@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RecordWildCards, OverloadedStrings, TemplateHaskell, TypeApplications #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
 
 module Promigrate.Up (migrateUp) where
 
@@ -8,7 +8,6 @@ import Control.Lens (_Just)
 import Data.Generics.Product
 import Data.Hashable
 import Data.String.Conversions
-import Prelude (putStrLn)
 import Promigrate.IO
 import Prosumma
 import Prosumma.AWS
@@ -23,7 +22,6 @@ import Text.Printf
 import Text.Regex.TDFA
 
 import qualified RIO.HashMap as HashMap
-import qualified RIO.Map as Map
 import qualified RIO.Set as Set
 import qualified RIO.Text as Text
 
@@ -33,7 +31,7 @@ migrationRegex = "^[0-9]{16}\\.[^.]+\\.up\\.psql$"
 data Variable = Variable {
   name :: !Text,
   value :: !Text,
-  file :: !(Maybe Text)
+  stamp :: !(Maybe Text)
 } deriving Show
 
 makeLensesWith addL ''Variable
@@ -60,7 +58,7 @@ data MigrationParameters = MigrationParameters {
   variables        :: !(Set Variable)
 } deriving Show
 
-makeLensesWith addL ''MigrationParameters
+-- makeLensesWith addL ''MigrationParameters
 
 newtype VariableScanException = VariableScanException Int deriving Show
 instance Exception VariableScanException
@@ -69,8 +67,8 @@ scanVariables :: Text -> RIO AWS (Set Variable)
 scanVariables table = do
   response <- sendAWS $ newScan $ table <> ".variables"
   let httpStatus = response ^. (field @"httpStatus")
-  if httpStatus == 401 
-    then return $ Set.fromList []
+  if httpStatus == 404 
+    then return mempty 
     else if httpStatus `notElem` [200..299]
       then throwIO $ VariableScanException httpStatus 
       else return $ variables $ response ^. (field @"items") . _Just
@@ -156,6 +154,13 @@ getMigrationsInOrderAfterStamp :: Maybe String -> FilePath -> RIO LogFunc [FileP
 getMigrationsInOrderAfterStamp Nothing = getFilteredMigrations (=~ migrationRegex) 
 getMigrationsInOrderAfterStamp (Just stamp) = getFilteredMigrations $ \file -> file =~ migrationRegex && take 16 file > stamp 
 
+getVariablesForStamp :: String -> Set Variable -> Set Variable
+getVariablesForStamp s = Set.filter isMatch
+  where
+    isMatch Variable{..} = case stamp of 
+      Nothing -> True 
+      Just stamp -> stamp == Text.pack s
+
 migrateUp :: Maybe FilePath -> Maybe Text -> RIO LogFunc ()
 migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do 
   migrationParametersTable <- getMigrationParametersTable maybeMigrationParametersTable 
@@ -168,11 +173,15 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   -- The following spaghetti is temporary
   pc <- mkDefaultProcessContext
   conn <- liftIO $ connectPostgreSQL $ convertString $ connectionString migrationParameters
-  runRIO (LoggedProcessContext pc mempty) $
-    proc "psql" [Text.unpack $ connectionString migrationParameters, "-v", "ON_ERROR_STOP=1", "--echo-all"] $ \config -> do
-      for_ migrations $ \migration -> do
+  let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" (metadataSchema migrationParameters) (metadataTable migrationParameters)
+  runRIO (LoggedProcessContext pc logFunc) $
+    for_ migrations $ \migration -> do
+      let migrationStamp = take 16 $ takeFileName migration
+      let vars = join $ map (\v -> ["-v", printf "%s=%s" (v^.nameL) (v^.valueL)]) $ toList $ getVariablesForStamp migrationStamp $ variables migrationParameters
+      let params = [Text.unpack $ connectionString migrationParameters, "--echo-all", "-v", "ON_ERROR_STOP=1"] <> vars
+      proc "psql" params $ \config -> do
         bytes <- readFileBinary migration
         let config' = flip setStdin config $ byteStringInput $ convertString bytes 
         runProcess_ config'
-        runRIO (PG conn logFunc) $ void $ execute "INSERT INTO proserver.__migration(stamp) SELECT ?" (Only $ take 16 $ takeFileName migration)
+        runRIO (PG conn logFunc) $ void $ execute insertion (Only migrationStamp)
   liftIO $ close conn
