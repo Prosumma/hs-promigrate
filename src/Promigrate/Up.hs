@@ -7,6 +7,7 @@ import Amazonka.DynamoDB
 import Control.Lens (_Just)
 import Data.Generics.Product
 import Data.Hashable
+import Data.String.Conversions
 import Prelude (putStrLn)
 import Promigrate.IO
 import Prosumma
@@ -14,11 +15,17 @@ import Prosumma.AWS
 import Prosumma.PG
 import Prosumma.Settings
 import RIO
+import RIO.Directory
+import RIO.FilePath
+import RIO.List
+import RIO.Process
 import Text.Printf
 import Text.Regex.TDFA
 
 import qualified RIO.HashMap as HashMap
+import qualified RIO.Map as Map
 import qualified RIO.Set as Set
+import qualified RIO.Text as Text
 
 migrationRegex :: Text
 migrationRegex = "^[0-9]{16}\\.[^.]+\\.up\\.psql$"
@@ -142,6 +149,13 @@ initialize MigrationParameters{..} = case parseConnectInfo connectionString of
       createMigrationTableIfNeeded metadataSchema metadataTable
       getMaxStamp metadataSchema metadataTable
 
+getFilteredMigrations :: (FilePath -> Bool) -> FilePath -> RIO LogFunc [FilePath]
+getFilteredMigrations predicate migrationsDirectory = map (migrationsDirectory </>) . sort .  filter predicate <$> getDirectoryContents migrationsDirectory
+
+getMigrationsInOrderAfterStamp :: Maybe String -> FilePath -> RIO LogFunc [FilePath]
+getMigrationsInOrderAfterStamp Nothing = getFilteredMigrations (=~ migrationRegex) 
+getMigrationsInOrderAfterStamp (Just stamp) = getFilteredMigrations $ \file -> file =~ migrationRegex && take 16 file > stamp 
+
 migrateUp :: Maybe FilePath -> Maybe Text -> RIO LogFunc ()
 migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do 
   migrationParametersTable <- getMigrationParametersTable maybeMigrationParametersTable 
@@ -150,6 +164,15 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   migrationParameters <- runRIO (AWS env logFunc) $ getMigrationParameters migrationParametersTable
   migrationsDirectory <- getMigrationsDirectory maybeMigrationsDirectory
   maybeMaxStamp <- initialize migrationParameters
-  liftIO $ do
-    putStrLn migrationsDirectory
-    for_ maybeMaxStamp putStrLn
+  migrations <- getMigrationsInOrderAfterStamp maybeMaxStamp migrationsDirectory
+  -- The following spaghetti is temporary
+  pc <- mkDefaultProcessContext
+  conn <- liftIO $ connectPostgreSQL $ convertString $ connectionString migrationParameters
+  runRIO (LoggedProcessContext pc mempty) $
+    proc "psql" [Text.unpack $ connectionString migrationParameters, "-v", "ON_ERROR_STOP=1", "--echo-all"] $ \config -> do
+      for_ migrations $ \migration -> do
+        bytes <- readFileBinary migration
+        let config' = flip setStdin config $ byteStringInput $ convertString bytes 
+        runProcess_ config'
+        runRIO (PG conn logFunc) $ void $ execute "INSERT INTO proserver.__migration(stamp) SELECT ?" (Only $ take 16 $ takeFileName migration)
+  liftIO $ close conn

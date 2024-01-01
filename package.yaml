@@ -33,6 +33,7 @@ dependencies:
 - prosumma
 - regex-tdfa
 - rio
+- string-conversions
 - time
 
 default-extensions:

@@ -1,0 +1,5 @@
+CREATE TABLE proserver.foo
+(
+  id BIGINT NOT NULL PRIMARY KEY
+, gong TEXT NOT NULL UNIQUE
+);
