@@ -7,6 +7,8 @@ import Amazonka.DynamoDB
 import Control.Lens (_Just)
 import Data.Generics.Product
 import Data.Hashable
+import Prelude (putStrLn)
+import Promigrate.IO
 import Prosumma
 import Prosumma.AWS
 import Prosumma.PG
@@ -47,6 +49,8 @@ data MigrationParameters = MigrationParameters {
   variables        :: !(Set Variable)
 } deriving Show
 
+makeLensesWith addL ''MigrationParameters
+
 newtype VariableScanException = VariableScanException Int deriving Show
 instance Exception VariableScanException
 
@@ -78,8 +82,7 @@ scanVariables table = do
 migrationDDL :: String
 migrationDDL = "\
 \CREATE TABLE %s.%s (\
-\   id BIGSERIAL NOT NULL PRIMARY KEY\
-\,  stamp CHAR(16) NOT NULL UNIQUE\
+\   stamp CHAR(16) NOT NULL PRIMARY KEY\
 \,  migrated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP\
 \)"
 
@@ -114,10 +117,13 @@ createMigrationTableIfNeeded schema table = do
     then return ()
     else void $ execute_ $ fromString $ printf migrationDDL schema table
 
+getMaxStamp :: String -> String -> RIO (PG Connection) (Maybe String)
+getMaxStamp metadataSchema metadataTable = value1_ $ fromString $ printf "SELECT MAX(stamp) FROM %s.%s" metadataSchema metadataTable 
+
 data InvalidConnectionString = InvalidConnectionString deriving Show
 instance Exception InvalidConnectionString
 
-initialize :: MigrationParameters -> RIO LogFunc ()
+initialize :: MigrationParameters -> RIO LogFunc (Maybe String) 
 initialize MigrationParameters{..} = case parseConnectInfo connectionString of 
   Left _ -> throwIO InvalidConnectionString
   Right connectInfo -> do
@@ -130,6 +136,7 @@ initialize MigrationParameters{..} = case parseConnectInfo connectionString of
     runRIO (PG databaseConn logFunc) $ do
       createSchemaIfNeeded metadataSchema
       createMigrationTableIfNeeded metadataSchema metadataTable
+      getMaxStamp metadataSchema metadataTable
 
 migrateUp :: Maybe FilePath -> Maybe Text -> RIO LogFunc ()
 migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do 
@@ -137,4 +144,8 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   logFunc <- asks (^.logFuncL)
   env <- liftIO $ newEnv discover
   migrationParameters <- runRIO (AWS env logFunc) $ getMigrationParameters migrationParametersTable
-  initialize migrationParameters
+  migrationsDirectory <- getMigrationsDirectory maybeMigrationsDirectory
+  maybeMaxStamp <- initialize migrationParameters
+  liftIO $ do
+    putStrLn migrationsDirectory
+    for_ maybeMaxStamp putStrLn

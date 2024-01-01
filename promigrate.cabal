@@ -25,7 +25,7 @@ source-repository head
 
 library
   exposed-modules:
-      Promigrate
+      Promigrate.IO
       Promigrate.New
       Promigrate.Up
   other-modules:
