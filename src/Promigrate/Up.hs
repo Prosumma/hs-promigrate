@@ -15,9 +15,13 @@ import Prosumma.PG
 import Prosumma.Settings
 import RIO
 import Text.Printf
+import Text.Regex.TDFA
 
 import qualified RIO.HashMap as HashMap
 import qualified RIO.Set as Set
+
+migrationRegex :: Text
+migrationRegex = "^[0-9]{16}\\.[^.]+\\.up\\.psql$"
 
 data Variable = Variable {
   name :: !Text,
