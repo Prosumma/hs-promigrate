@@ -31,6 +31,7 @@ dependencies:
 - postgresql-libpq
 - postgresql-simple
 - prosumma
+- regex-tdfa
 - rio
 - time
 
