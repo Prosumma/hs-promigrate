@@ -1,0 +1,8 @@
+CREATE PROCEDURE pg_temp.mktbl(_name TEXT)
+LANGUAGE PLPGSQL AS $$
+BEGIN
+  EXECUTE FORMAT('CREATE TABLE proserver.%I (id BIGSERIAL NOT NULL PRIMARY KEY, fuzzy TEXT NOT NULL UNIQUE)', _name);
+END;
+$$;
+
+CALL pg_temp.mktbl(:'blargh');
