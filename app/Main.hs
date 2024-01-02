@@ -38,9 +38,6 @@ commandParser = subparser
     <> command "new" (info newCommand (progDesc "Create a new migration"))
     )
 
-migrationRegex :: Text
-migrationRegex = "^[0-9]{16}\\.[^.]+\\.up\\.psql$"
-
 main :: IO ()
 main = do
   command <- customExecParser (prefs showHelpOnError) $ info (commandParser <**> helper)
