@@ -154,8 +154,8 @@ getMigrationsInOrderAfterStamp :: Maybe String -> FilePath -> RIO LogFunc [FileP
 getMigrationsInOrderAfterStamp Nothing = getFilteredMigrations (=~ migrationRegex) 
 getMigrationsInOrderAfterStamp (Just stamp) = getFilteredMigrations $ \file -> file =~ migrationRegex && take 16 file > stamp 
 
-getVariablesForStamp :: String -> Set Variable -> Set Variable
-getVariablesForStamp s = Set.filter isMatch
+getVariablesForStamp :: String -> Set Variable -> [Variable] 
+getVariablesForStamp s = toList . Set.filter isMatch
   where
     isMatch Variable{..} = case stamp of 
       Nothing -> True 
@@ -166,22 +166,24 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   migrationParametersTable <- getMigrationParametersTable maybeMigrationParametersTable 
   logFunc <- asks (^.logFuncL)
   env <- liftIO $ newEnv discover
-  migrationParameters <- runRIO (AWS env logFunc) $ getMigrationParameters migrationParametersTable
+  migrationParameters@MigrationParameters{..} <- runRIO (AWS env logFunc) $
+    getMigrationParameters migrationParametersTable
   migrationsDirectory <- getMigrationsDirectory maybeMigrationsDirectory
   maybeMaxStamp <- initialize migrationParameters
   migrations <- getMigrationsInOrderAfterStamp maybeMaxStamp migrationsDirectory
-  -- The following spaghetti is temporary
   pc <- mkDefaultProcessContext
-  conn <- liftIO $ connectPostgreSQL $ convertString $ connectionString migrationParameters
-  let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" (metadataSchema migrationParameters) (metadataTable migrationParameters)
+  conn <- liftIO $ connectPostgreSQL $ convertString $ connectionString
+  let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" metadataSchema metadataTable 
   runRIO (LoggedProcessContext pc logFunc) $
     for_ migrations $ \migration -> do
       let migrationStamp = take 16 $ takeFileName migration
-      let vars = join $ map (\v -> ["-v", printf "%s=%s" (v^.nameL) (v^.valueL)]) $ toList $ getVariablesForStamp migrationStamp $ variables migrationParameters
-      let params = [Text.unpack $ connectionString migrationParameters, "--echo-all", "-v", "ON_ERROR_STOP=1"] <> vars
+      let vars = join $ map formatVariable $ getVariablesForStamp migrationStamp variables 
+      let params = [Text.unpack connectionString, "--echo-all", "-v", "ON_ERROR_STOP=1"] <> vars
       proc "psql" params $ \config -> do
         bytes <- readFileBinary migration
         let config' = flip setStdin config $ byteStringInput $ convertString bytes 
         runProcess_ config'
         runRIO (PG conn logFunc) $ void $ execute insertion (Only migrationStamp)
   liftIO $ close conn
+  where
+    formatVariable Variable{..} = ["-v", printf "%s=%s" name value]
