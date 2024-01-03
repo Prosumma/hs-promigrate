@@ -1,8 +1,19 @@
 CREATE PROCEDURE pg_temp.create_role(_password TEXT)
 LANGUAGE PLPGSQL AS $$
 BEGIN
-  EXECUTE FORMAT('CREATE ROLE fuzzy LOGIN PASSWORD %L', _password);
+  PERFORM FROM pg_catalog.pg_roles WHERE rolname = 'proserver';
+  IF NOT FOUND THEN
+    EXECUTE FORMAT('CREATE ROLE fuzzy LOGIN PASSWORD %L', _password);
+  END IF;
 END;
 $$;
 
 CALL pg_temp.create_role(:'fnord');
+
+CREATE TABLE fizzle
+(
+  id BIGSERIAL NOT NULL PRIMARY KEY
+, fugazi TEXT NOT NULL UNIQUE
+);
+
+GRANT SELECT ON TABLE fizzle TO fuzzy;
