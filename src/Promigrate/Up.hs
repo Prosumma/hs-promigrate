@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, NamedFieldPuns, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, NamedFieldPuns, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TypeApplications #-}
 
 module Promigrate.Up (migrateUp) where
 
@@ -8,6 +8,7 @@ import Control.Lens (_Just)
 import Data.Generics.Product
 import Data.Hashable
 import Data.String.Conversions
+import Formatting
 import Promigrate.IO
 import Prosumma
 import Prosumma.AWS
@@ -68,18 +69,18 @@ scanVariables :: Text -> RIO AWS (Set Variable)
 scanVariables table = do
   response <- sendAWS $ newScan $ table <> ".variables"
   let httpStatus = response ^. (field @"httpStatus")
-  if httpStatus == 404 
-    then return mempty 
+  if httpStatus == 404
+    then return mempty
     else if httpStatus `notElem` [200..299]
-      then throwIO $ VariableScanException httpStatus 
+      then throwIO $ VariableScanException httpStatus
       else return $ variables $ response ^. (field @"items") . _Just
   where
-    variables :: [HashMap Text AttributeValue] -> Set Variable 
+    variables :: [HashMap Text AttributeValue] -> Set Variable
     variables [] = mempty
-    variables (row:rows) = getRow <> variables rows 
+    variables (row:rows) = getRow <> variables rows
       where
-        getRow = case lookupText "name" of 
-          Just name -> case lookupText "value" of 
+        getRow = case lookupText "name" of
+          Just name -> case lookupText "value" of
             Just value -> Set.fromList [Variable name value (lookupText "file")]
             _other -> mempty
           _other -> mempty
@@ -96,13 +97,13 @@ migrationDDL = "\
 \,  migrated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP\
 \)"
 
-getMigrationParameters :: Text -> RIO AWS MigrationParameters 
-getMigrationParameters table = do 
-  (connectionString, metadataSchema, metadataTable) <- scanMigrationSettings table 
-  variables <- scanVariables table 
+getMigrationParameters :: Text -> RIO AWS MigrationParameters
+getMigrationParameters table = do
+  (connectionString, metadataSchema, metadataTable) <- scanMigrationSettings table
+  variables <- scanVariables table
   return $ MigrationParameters{..}
 
-getMigrationParametersTable :: Maybe Text -> RIO LogFunc Text 
+getMigrationParametersTable :: Maybe Text -> RIO LogFunc Text
 getMigrationParametersTable (Just table) = return table
 getMigrationParametersTable Nothing = envString Nothing "PROMIGRATE_SETTINGS_TABLE"
 
@@ -128,13 +129,13 @@ createMigrationTableIfNeeded schema table = do
     else void $ execute_ $ fromString $ printf migrationDDL schema table
 
 getMaxStamp :: String -> String -> RIO (PG Connection) (Maybe String)
-getMaxStamp metadataSchema metadataTable = value1_ $ fromString $ printf "SELECT MAX(stamp) FROM %s.%s" metadataSchema metadataTable 
+getMaxStamp metadataSchema metadataTable = value1_ $ fromString $ printf "SELECT MAX(stamp) FROM %s.%s" metadataSchema metadataTable
 
 data InvalidConnectionString = InvalidConnectionString deriving Show
 instance Exception InvalidConnectionString
 
-initialize :: MigrationParameters -> RIO LogFunc (Maybe String) 
-initialize MigrationParameters{..} = case parseConnectInfo connectionString of 
+initialize :: MigrationParameters -> RIO LogFunc (Maybe String)
+initialize MigrationParameters{..} = case parseConnectInfo connectionString of
   Left _ -> throwIO InvalidConnectionString
   Right connectInfo -> do
     logFunc <- asks (^.logFuncL)
@@ -152,19 +153,19 @@ getFilteredMigrations :: (FilePath -> Bool) -> FilePath -> RIO LogFunc [FilePath
 getFilteredMigrations predicate migrationsDirectory = map (migrationsDirectory </>) . sort .  filter predicate <$> getDirectoryContents migrationsDirectory
 
 getMigrationsInOrderAfterStamp :: Maybe String -> FilePath -> RIO LogFunc [FilePath]
-getMigrationsInOrderAfterStamp Nothing = getFilteredMigrations (=~ migrationRegex) 
-getMigrationsInOrderAfterStamp (Just stamp) = getFilteredMigrations $ \file -> file =~ migrationRegex && take 16 file > stamp 
+getMigrationsInOrderAfterStamp Nothing = getFilteredMigrations (=~ migrationRegex)
+getMigrationsInOrderAfterStamp (Just stamp) = getFilteredMigrations $ \file -> file =~ migrationRegex && take 16 file > stamp
 
-getVariablesForStamp :: String -> Set Variable -> [Variable] 
+getVariablesForStamp :: String -> Set Variable -> [Variable]
 getVariablesForStamp s = toList . Set.filter isMatch
   where
-    isMatch Variable{..} = case stamp of 
-      Nothing -> True 
+    isMatch Variable{..} = case stamp of
+      Nothing -> True
       Just stamp -> stamp == Text.pack s
 
 migrateUp :: Maybe FilePath -> Maybe Text -> RIO LogFunc ()
-migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do 
-  migrationParametersTable <- getMigrationParametersTable maybeMigrationParametersTable 
+migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
+  migrationParametersTable <- getMigrationParametersTable maybeMigrationParametersTable
   logFunc <- asks (^.logFuncL)
   env <- liftIO $ newEnv discover
   migrationParameters@MigrationParameters{..} <- runRIO (AWS env logFunc) $
@@ -174,17 +175,19 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   migrations <- getMigrationsInOrderAfterStamp maybeMaxStamp migrationsDirectory
   pc <- mkDefaultProcessContext
   conn <- liftIO $ connectPostgreSQL $ convertString connectionString
-  let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" metadataSchema metadataTable 
+  let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" metadataSchema metadataTable
   runRIO (LoggedProcessContext pc logFunc) $
     for_ migrations $ \migration -> do
+      logInfo $ uformat ("About to migrate " % string % ".") migration
       let migrationStamp = take 16 $ takeFileName migration
-      let vars = join $ map formatVariable $ getVariablesForStamp migrationStamp variables 
+      let vars = join $ map formatVariable $ getVariablesForStamp migrationStamp variables
       let params = [Text.unpack connectionString, "--echo-all", "-v", "ON_ERROR_STOP=1"] <> vars
       proc "psql" params $ \config -> do
         bytes <- readFileBinary migration
-        let config' = flip setStdin config $ byteStringInput $ convertString bytes 
+        let config' = flip setStdin config $ byteStringInput $ convertString bytes
         runProcess_ config'
         runRIO (PG conn logFunc) $ void $ execute insertion (Only migrationStamp)
+      logInfo $ uformat ("Successfully migrated " % string % ".") migration
   liftIO $ close conn
   where
     formatVariable Variable{..} = ["-v", printf "%s=%s" name value]
