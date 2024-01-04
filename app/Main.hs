@@ -2,20 +2,12 @@
 
 module Main (main) where
 
-import Data.Time.Clock.POSIX
 import Options.Applicative hiding (HasName, HasValue)
+import Promigrate.New
 import Promigrate.Up
 import Prosumma
 import Prosumma.Logging
 import RIO
-import RIO.FilePath
-import RIO.Time
-import Text.Printf
-
-getStamp :: IO String
-getStamp = do
-  time <- posixSecondsToUTCTime <$> getPOSIXTime
-  return $ take 16 $ formatTime defaultTimeLocale "%Y%m%d%H%M%S%q" time
 
 data Command
   = Up (Maybe FilePath) (Maybe Text)
@@ -49,17 +41,10 @@ main = do
   withLogFunc logOptions $ \logFunc -> do
     runRIO logFunc $ do
       case command of
-        New hint path -> do
-          stamp <- liftIO getStamp
-          let filename = printf "%s.%s.up.psql" stamp hint
-          migrationDirectory <- getMigrationDirectory path
-          let filepath = migrationDirectory </> filename
-          writeFileUtf8 filepath ""
+        New hint path -> newMigration hint path 
         Up maybeMigrationsDirectory maybeMigrationParametersTable ->
           migrateUp maybeMigrationsDirectory maybeMigrationParametersTable
   where
     readLogOptions = do
       logMinLevel <- envValue (Just LevelDebug) readLogLevel "PROMIGRATE_LOGLEVEL"
       logOptionsHandle stderr True <&> setLogMinLevel logMinLevel
-    getMigrationDirectory (Just path) = return path
-    getMigrationDirectory Nothing = envString (Just ".") "PROMIGRATE_MIGRATIONS_DIRECTORY"
