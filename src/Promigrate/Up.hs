@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, FunctionalDependencies, NamedFieldPuns, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
 
 module Promigrate.Up (migrateUp) where
 
@@ -34,7 +34,8 @@ data Variable = Variable {
   stamp :: !(Maybe Text)
 } deriving Show
 
-makeLensesWith addL ''Variable
+nameL :: Lens' Variable Text
+nameL = lens name $ \variable name -> variable{name}
 
 instance Eq Variable where
   v1 == v2 = v1^.nameL == v2^.nameL
@@ -172,7 +173,7 @@ migrateUp maybeMigrationsDirectory maybeMigrationParametersTable = do
   maybeMaxStamp <- initialize migrationParameters
   migrations <- getMigrationsInOrderAfterStamp maybeMaxStamp migrationsDirectory
   pc <- mkDefaultProcessContext
-  conn <- liftIO $ connectPostgreSQL $ convertString $ connectionString
+  conn <- liftIO $ connectPostgreSQL $ convertString connectionString
   let insertion = fromString $ printf "INSERT INTO %s.%s(stamp) SELECT ?" metadataSchema metadataTable 
   runRIO (LoggedProcessContext pc logFunc) $
     for_ migrations $ \migration -> do
