@@ -1,0 +1,15 @@
+CREATE PROCEDURE pg_temp.create_migration_table (
+  _schema TEXT
+, _table TEXT
+) LANGUAGE PLPGSQL AS $$
+BEGIN
+  EXECUTE FORMAT($SQL$
+    CREATE TABLE %I.%I (
+      stamp CHAR(16) NOT NULL PRIMARY KEY
+    , migrated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  $SQL$, _schema, _table);
+END;
+$$;
+
+CALL pg_temp.create_migration_table(?, ?);

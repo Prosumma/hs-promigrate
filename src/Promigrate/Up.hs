@@ -1,11 +1,12 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, NamedFieldPuns, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TypeApplications #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, NamedFieldPuns, RecordWildCards, OverloadedStrings, ScopedTypeVariables, TemplateHaskell, TypeApplications #-}
 
 module Promigrate.Up (migrateUp) where
 
 import Amazonka (discover, newEnv)
-import Amazonka.DynamoDB
+import Amazonka.DynamoDB hiding (Query)
 import Control.Lens (_Just)
 import Data.Generics.Product
+import Data.FileEmbed
 import Data.Hashable
 import Data.String.Conversions
 import Formatting
@@ -90,12 +91,8 @@ scanVariables table = do
         getText (S text) = Just text
         getText _other = Nothing
 
-migrationDDL :: String
-migrationDDL = "\
-\CREATE TABLE %s.%s (\
-\   stamp CHAR(16) NOT NULL PRIMARY KEY\
-\,  migrated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP\
-\)"
+migrationDDL :: Query 
+migrationDDL = $(embedStringFile "res/create_migration_table.psql") 
 
 getMigrationParameters :: Text -> RIO AWS MigrationParameters
 getMigrationParameters table = do
@@ -126,7 +123,7 @@ createMigrationTableIfNeeded schema table = do
   found <- value1 "SELECT EXISTS (SELECT c.relname FROM pg_class c INNER JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.relname = ? AND n.nspname = ?)" (table, schema)
   if found
     then return ()
-    else void $ execute_ $ fromString $ printf migrationDDL schema table
+    else void $ execute migrationDDL (schema, table) 
 
 getMaxStamp :: String -> String -> RIO (PG Connection) (Maybe String)
 getMaxStamp metadataSchema metadataTable = value1_ $ fromString $ printf "SELECT MAX(stamp) FROM %s.%s" metadataSchema metadataTable

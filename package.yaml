@@ -9,6 +9,7 @@ copyright:           "2023 Gregory Higley / Prosumma Inc."
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- res/*.psql
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -23,6 +24,7 @@ dependencies:
 - amazonka
 - amazonka-dynamodb
 - base >= 4.7 && < 5
+- file-embed
 - formatting
 - generic-lens
 - hashable

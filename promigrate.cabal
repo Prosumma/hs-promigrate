@@ -18,6 +18,7 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
+    res/create_migration_table.psql
 
 source-repository head
   type: git
@@ -41,6 +42,7 @@ library
       amazonka
     , amazonka-dynamodb
     , base >=4.7 && <5
+    , file-embed
     , formatting
     , generic-lens
     , hashable
@@ -70,6 +72,7 @@ executable promigrate
       amazonka
     , amazonka-dynamodb
     , base >=4.7 && <5
+    , file-embed
     , formatting
     , generic-lens
     , hashable
@@ -101,6 +104,7 @@ test-suite promigrate-test
       amazonka
     , amazonka-dynamodb
     , base >=4.7 && <5
+    , file-embed
     , formatting
     , generic-lens
     , hashable
