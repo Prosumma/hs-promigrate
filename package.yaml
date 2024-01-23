@@ -30,7 +30,6 @@ dependencies:
 - hashable
 - lens
 - optparse-applicative
-- postgresql-libpq
 - postgresql-simple
 - prosumma
 - regex-tdfa
