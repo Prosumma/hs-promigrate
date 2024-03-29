@@ -1,7 +1,7 @@
 CREATE PROCEDURE pg_temp.create_role(_password TEXT)
 LANGUAGE PLPGSQL AS $$
 BEGIN
-  PERFORM FROM pg_catalog.pg_roles WHERE rolname = 'proserver';
+  PERFORM FROM pg_catalog.pg_roles WHERE rolname = 'fuzzy';
   IF NOT FOUND THEN
     EXECUTE FORMAT('CREATE ROLE fuzzy LOGIN PASSWORD %L', _password);
   END IF;
